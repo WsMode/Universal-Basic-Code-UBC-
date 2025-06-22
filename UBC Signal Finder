@@ -22,7 +22,7 @@ TRADE_START_INDEX  = EMA_INIT_INDEX  # only start computing signals at this inde
 INVESTMENT_CAPITAL = 100
 PROFIT_TARGET      = 0.30       # unused here, kept for backward compatibility
 Strategy           = 1          # 1: buy signals only; 0: sell only; other: both
-TARGET_ASSET       = "TAN"         # e.g. "QQQ"; leave empty to process all
+TARGET_ASSET       = ""         # e.g. "QQQ"; leave empty to process all
 DELETE_ASSETS_FILE = None       # filled in main()
 
 # smoothing constant (standard: 2/(span+1))
@@ -1183,7 +1183,19 @@ def run_ubc_pro():
     charts_dir      = os.path.join(script_dir, "Charts")
     DELETE_ASSETS_FILE = os.path.join(script_dir, "Delete Assets.txt")
 
-    # Pre-process delete list
+    # Phase 1: Download & merge historical data
+    print("\n=== Phase 1: Download & merge historical data ===")
+    combined = download_asset_data(
+        asset_list_path,
+        csv_file,
+        parquet_file,
+        DELETE_ASSETS_FILE
+    )
+    if combined.empty:
+        print("No data to process. Exiting.")
+        return
+
+    # ── Now that today's fetch is done, apply delete-list cleanup ──────────
     if os.path.exists(DELETE_ASSETS_FILE):
         dels = set(pd.read_csv(DELETE_ASSETS_FILE)["Symbol"].str.strip())
         if os.path.exists(parquet_file):
@@ -1197,17 +1209,8 @@ def run_ubc_pro():
             df_csv.to_csv(csv_file, index=False)
             logging.info(f"Removed {len(dels)} rows from CSV per delete list.")
 
-    # Phase 1: Download & merge historical data
-    print("\n=== Phase 1: Download & merge historical data ===")
-    combined = download_asset_data(
-        asset_list_path,
-        csv_file,
-        parquet_file,
-        DELETE_ASSETS_FILE
-    )
-    if combined.empty:
-        print("No data to process. Exiting.")
-        return
+    # … continue with Phase 2, Phase 3, etc. …
+
 
     # If targeting a single asset
     if TARGET_ASSET:
